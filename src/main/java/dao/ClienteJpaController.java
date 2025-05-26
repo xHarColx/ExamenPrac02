@@ -7,13 +7,17 @@ package dao;
 import dao.exceptions.NonexistentEntityException;
 import dto.Cliente;
 import java.io.Serializable;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
 import javax.persistence.EntityNotFoundException;
+import javax.persistence.Persistence;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
+import util.MD5;
 
 /**
  *
@@ -24,10 +28,13 @@ public class ClienteJpaController implements Serializable {
     public ClienteJpaController(EntityManagerFactory emf) {
         this.emf = emf;
     }
-    private EntityManagerFactory emf = null;
+    private EntityManagerFactory emf = Persistence.createEntityManagerFactory("com.mycompany_ExamenPrac02_war_1.0-SNAPSHOTPU");
 
     public EntityManager getEntityManager() {
         return emf.createEntityManager();
+    }
+
+    public ClienteJpaController() {
     }
 
     public void create(Cliente cliente) {
@@ -133,5 +140,68 @@ public class ClienteJpaController implements Serializable {
             em.close();
         }
     }
-    
+
+    public Cliente validarUsuario(Cliente u) {
+        EntityManager em = getEntityManager();
+        try {
+            Query q = em.createNamedQuery("Cliente.validar", Cliente.class);
+            q.setParameter("logiClie", u.getLogiClie());
+            q.setParameter("passClie", u.getPassClie());
+            return (Cliente) q.getSingleResult();
+        } catch (Exception ex) {
+            String mensaje = ex.getMessage();
+            return null;
+        } finally {
+            em.close();
+        }
+    }
+
+    public int calcularEdad(Date fecha) {
+        Calendar fechaInicial = Calendar.getInstance();
+        fechaInicial.setTime(fecha);
+        Calendar fechaActual = Calendar.getInstance();
+        int edad = fechaActual.get(Calendar.YEAR) - fechaInicial.get(Calendar.YEAR);
+        if (fechaActual.get(Calendar.DAY_OF_YEAR) < fechaInicial.get(Calendar.DAY_OF_YEAR)) {
+            edad--;
+        }
+        return edad;
+    }
+
+    public String cambiarClave(Cliente u, String nuevaClave) {
+        EntityManager em = getEntityManager();
+        try {
+            Cliente usuario = validarUsuario(u);
+            if (usuario != null) { // Verifica que el usuario exista
+                if (usuario.getPassClie().equals(u.getPassClie())) {
+                    usuario.setPassClie(nuevaClave);
+                    edit(usuario);
+                    return "Clave cambiada";
+                } else {
+                    return "Clave actual no válida";
+                }
+            } else {
+                return "Usuario no encontrado"; // Manejo de usuario no encontrado
+            }
+        } catch (Exception ex) {
+            return null;
+        } finally {
+            em.close();
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        ClienteJpaController vurDAO = new ClienteJpaController();
+        Cliente vur = vurDAO.validarUsuario(new Cliente("harol", "81dc9bdb52d04dc20036dbd8313ed055"));
+
+        String pass = "1234";
+        String contraCifrada = MD5.getMD5(pass);
+        System.out.println("Contra cifrada: " + contraCifrada);
+        System.out.println("---------------------------");
+
+        if (vur != null) {
+            System.out.println("PERSONA ENCONTRADA");
+        } else {
+            System.out.println("PERSONA NO ENCONTRADA");
+        }
+    }
 }
